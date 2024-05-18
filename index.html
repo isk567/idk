@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            width: 80%;
+            margin: auto;
+        }
+
+        header {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #5d5c61;
+        }
+
+        .main {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .counter-section, .calendar-section {
+            width: 48%;
+        }
+
+        .counter {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .counter h2 {
+            margin: 0;
+        }
+
+        .counter button {
+            font-size: 1.5em;
+            padding: 10px;
+            background-color: #6a89cc;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .counter button:hover {
+            background-color: #4a69bd;
+        }
+
+        #tally, #satisfied-tally {
+            font-size: 2em;
+            margin: 0 20px;
+        }
+
+        .income, .satisfaction {
+            margin: 20px 0;
+        }
+
+        .income h3, .satisfaction h3 {
+            margin: 10px 0;
+        }
+
+        .manual-entry {
+            margin-top: 20px;
+        }
+
+        .manual-entry input {
+            padding: 10px;
+            margin: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .manual-entry button {
+            padding: 10px 20px;
+            background-color: #38ada9;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .manual-entry button:hover {
+            background-color: #079992;
+        }
+
+        #calendar {
+            margin-top: 20px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #calendar table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        #calendar th, #calendar td {
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #ccc;
+        }
+
+        #calendar th {
+            background-color: #6a89cc;
+            color: #fff;
+        }
+
+        #calendar td {
+            background-color: #f4f4f9;
+        }
+
+        #calendar td.today {
+            background-color: #82ccdd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Daily Question Tracker</h1>
+        </header>
+        <main class="main">
+            <div class="counter-section">
+                <div class="counter">
+                    <h2>Today's Questions Solved</h2>
+                    <button onclick="changeTally(-1)">-</button>
+                    <span id="tally">0</span>
+                    <button onclick="changeTally(1)">+</button>
+                </div>
+                <div class="income">
+                    <h3>Today's Income: <span id="daily-income">0</span> tk</h3>
+                    <h3>Monthly Income: <span id="monthly-income">0</span> tk</h3>
+                </div>
+                <div class="counter">
+                    <h2>Today's Satisfied Students</h2>
+                    <button onclick="changeSatisfiedTally(-1)">-</button>
+                    <span id="satisfied-tally">0</span>
+                    <button onclick="changeSatisfiedTally(1)">+</button>
+                </div>
+                <div class="satisfaction">
+                    <h3>Monthly Satisfied Students: <span id="monthly-satisfied">0</span></h3>
+                </div>
+                <div class="manual-entry">
+                    <h3>Manual Edit</h3>
+                    <input type="date" id="manual-date">
+                    <input type="number" id="manual-tally" placeholder="Questions solved">
+                    <input type="number" id="manual-satisfied" placeholder="Satisfied students">
+                    <button onclick="manualEdit()">Submit</button>
+                </div>
+            </div>
+            <div class="calendar-section">
+                <div id="calendar"></div>
+            </div>
+        </main>
+    </div>
+    <script>
+        const BDT_OFFSET = 6 * 60 * 60 * 1000; // Bangladesh is UTC +6
+        let currentTally = 0;
+        let currentSatisfiedTally = 0;
+        let monthlyTally = 0;
+        let monthlySatisfiedTally = 0;
+        let data = {};
+        let satisfiedData = {};
+
+        // Load data from localStorage
+        function loadData() {
+            const storedData = localStorage.getItem('questionData');
+            const storedSatisfiedData = localStorage.getItem('satisfiedData');
+            if (storedData) {
+                data = JSON.parse(storedData);
+                updateMonthlyTally();
+            }
+            if (storedSatisfiedData) {
+                satisfiedData = JSON.parse(storedSatisfiedData);
+                updateMonthlySatisfiedTally();
+            }
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            localStorage.setItem('questionData', JSON.stringify(data));
+            localStorage.setItem('satisfiedData', JSON.stringify(satisfiedData));
+        }
+
+        // Update the tally and incomes
+        function updateTallyDisplay() {
+            document.getElementById('tally').innerText = currentTally;
+            document.getElementById('daily-income').innerText = currentTally * 10;
+            document.getElementById('monthly-income').innerText = monthlyTally * 10;
+            document.getElementById('satisfied-tally').innerText = currentSatisfiedTally;
+            document.getElementById('monthly-satisfied').innerText = monthlySatisfiedTally;
+        }
+
+        // Get today's date adjusted to BST without shifting the day
+        function getTodayDate() {
+            const now = new Date();
+            const offset = now.getTimezoneOffset() * 60000; // local time offset in milliseconds
+            const adjustedTime = now.getTime() + offset + BDT_OFFSET;
+            const adjustedDate = new Date(adjustedTime);
+            return adjustedDate.toISOString().slice(0, 10);
+        }
+
+        // Change the tally for today
+        function changeTally(amount) {
+            const today = getTodayDate();
+            currentTally += amount;
+            if (currentTally < 0) currentTally = 0;
+            data[today] = currentTally;
+            saveData();
+            updateMonthlyTally();
+            updateTallyDisplay();
+            updateCalendar();
+        }
+
+        // Change the satisfied tally for today
+        function changeSatisfiedTally(amount) {
+            const today = getTodayDate();
+            currentSatisfiedTally += amount;
+            if (currentSatisfiedTally < 0) currentSatisfiedTally = 0;
+            satisfiedData[today] = currentSatisfiedTally;
+            saveData();
+            updateMonthlySatisfiedTally();
+            updateTallyDisplay();
+        }
+
+        // Manual edit for a specific date
+        function manualEdit() {
+            const date = document.getElementById('manual-date').value;
+            const tally = parseInt(document.getElementById('manual-tally').value, 10);
+            const satisfied = parseInt(document.getElementById('manual-satisfied').value, 10);
+            if (date && !isNaN(tally) && tally >= 0) {
+                data[date] = tally;
+            }
+            if (date && !isNaN(satisfied) && satisfied >= 0) {
+                satisfiedData[date] = satisfied;
+            }
+            saveData();
+            updateMonthlyTally();
+            updateMonthlySatisfiedTally();
+            updateTallyDisplay();
+            updateCalendar();
+        }
+
+        // Update the monthly tally
+        function updateMonthlyTally() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth() + 1;
+            monthlyTally = 0;
+            for (const date in data) {
+                const dateObj = new Date(date);
+                if (dateObj.getFullYear() === year && dateObj.getMonth() + 1 === month) {
+                    monthlyTally += data[date];
+                }
+            }
+        }
+
+        // Update the monthly satisfied tally
+        function updateMonthlySatisfiedTally() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth() + 1;
+            monthlySatisfiedTally = 0;
+            for (const date in satisfiedData) {
+                const dateObj = new Date(date);
+                if (dateObj.getFullYear() === year && dateObj.getMonth() + 1 === month) {
+                    monthlySatisfiedTally += satisfiedData[date];
+                }
+            }
+        }
+
+        // Generate calendar for the current month
+        function updateCalendar() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth();
+
+            const calendar = document.getElementById('calendar');
+            calendar.innerHTML = '';
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const lastDate = new Date(year, month + 1, 0).getDate();
+
+            const table = document.createElement('table');
+            const header = document.createElement('tr');
+            const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            daysOfWeek.forEach(day => {
+                const th = document.createElement('th');
+                th.innerText = day;
+                header.appendChild(th);
+            });
+            table.appendChild(header);
+
+            let row = document.createElement('tr');
+            for (let i = 0; i < firstDay; i++) {
+                const cell = document.createElement('td');
+                row.appendChild(cell);
+            }
+
+            for (let date = 1; date <= lastDate; date++) {
+                if ((firstDay + date - 1) % 7 === 0 && date !== 1) {
+                    table.appendChild(row);
+                    row = document.createElement('tr');
+                }
+                const cell = document.createElement('td');
+                const fullDate = new Date(year, month, date).toISOString().slice(0, 10);
+                cell.innerText = date;
+                if (data[fullDate]) {
+                    cell.innerText += ` (${data[fullDate]})`;
+                }
+                if (date === today.getDate()) {
+                    cell.classList.add('today');
+                }
+                row.appendChild(cell);
+            }
+            table.appendChild(row);
+            calendar.appendChild(table);
+        }
+
+        // Initialize the application
+        function init() {
+            loadData();
+            const today = getTodayDate();
+            if (!data[today]) data[today] = 0;
+            if (!satisfiedData[today]) satisfiedData[today] = 0;
+            currentTally = data[today];
+            currentSatisfiedTally = satisfiedData[today];
+            updateTallyDisplay();
+            updateCalendar();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
